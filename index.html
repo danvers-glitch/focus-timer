@@ -395,7 +395,7 @@
     totalSeconds = mins * 60;
     remaining = totalSeconds;
 
-    // Show GO message for 3 s
+    // Show GO message for 2 s
     const msg = GO_MESSAGES[Math.floor(Math.random() * GO_MESSAGES.length)];
     document.getElementById('go-message').textContent = msg;
     showView('view-go');
@@ -411,7 +411,7 @@
       setProgress(1);
       showView('view-timer');
       runCountdown();
-    }, 3000);
+    }, 2000);
   }
 
   function runCountdown() {
