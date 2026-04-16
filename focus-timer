@@ -1,0 +1,476 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Focus Timer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --surface: #e4edf5;
+      --text: #1a2333;
+      --text-muted: #6278a0;
+      --accent: #2c67c9;
+      --accent-soft: #dce8fa;
+      --btn-bg: #dde6f2;
+      --btn-hover: #ccd9ed;
+      --border: #c0d0e8;
+      --timer-size: clamp(5rem, 18vw, 9rem);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e1520;
+        --surface: #162032;
+        --text: #dce8f8;
+        --text-muted: #6a88b8;
+        --accent: #5090e8;
+        --accent-soft: #122040;
+        --btn-bg: #1a2d45;
+        --btn-hover: #223858;
+        --border: #1e3252;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    /* ── Shared fade ── */
+    .view { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 480px; }
+    .view.active { display: flex; animation: fadeIn 0.5s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ══ HOME VIEW ══ */
+    #view-home { gap: 2.5rem; }
+
+    .site-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(1.6rem, 5vw, 2.2rem);
+      letter-spacing: -0.02em;
+      text-align: center;
+      color: var(--text);
+    }
+    .site-title span { color: var(--accent); font-style: italic; }
+
+    .quote-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.4rem 1.8rem;
+      text-align: center;
+      width: 100%;
+    }
+    .quote-text {
+      font-family: 'DM Serif Display', serif;
+      font-style: italic;
+      font-size: clamp(1rem, 3vw, 1.15rem);
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 0.6rem;
+    }
+    .quote-author {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .timer-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.7rem;
+      width: 100%;
+    }
+
+    .btn-timer {
+      background: var(--btn-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 0.5rem;
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.25rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, border-color 0.15s;
+      text-align: center;
+    }
+    .btn-timer:hover {
+      background: var(--btn-hover);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .btn-timer:active { transform: translateY(0); }
+    .btn-timer .btn-sub {
+      display: block;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* ══ GO VIEW ══ */
+    #view-go { gap: 1.2rem; justify-content: center; }
+    .go-message {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2rem, 8vw, 3.5rem);
+      font-style: italic;
+      color: var(--accent);
+      text-align: center;
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
+
+    /* ══ TIMER VIEW ══ */
+    #view-timer { gap: 2rem; }
+
+    .timer-ring-wrap {
+      position: relative;
+      width: clamp(200px, 55vw, 260px);
+      height: clamp(200px, 55vw, 260px);
+    }
+    .timer-ring-wrap svg {
+      position: absolute; inset: 0;
+      transform: rotate(-90deg);
+      width: 100%; height: 100%;
+    }
+    .ring-bg { fill: none; stroke: var(--border); stroke-width: 4; }
+    .ring-progress {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear;
+    }
+    .timer-display {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Serif Display', serif;
+      font-size: var(--timer-size);
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    .timer-display.flash { animation: flash 0.8s step-start infinite; }
+    @keyframes flash { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }
+
+    .timer-chosen-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .btn-done {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      padding: 0.85rem 2.5rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: opacity 0.15s, transform 0.1s;
+      animation: fadeIn 0.4s ease;
+    }
+    .btn-done:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-done.visible { display: block; }
+
+    .timer-controls {
+      display: flex;
+      gap: 0.7rem;
+    }
+    .btn-ctrl {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 0.6rem 1.4rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    .btn-ctrl:hover { background: var(--btn-hover); color: var(--text); border-color: var(--accent); transform: translateY(-1px); }
+    .btn-ctrl:active { transform: translateY(0); }
+    .btn-pause.paused { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+    /* ══ Footer ══ */
+    .footer {
+      margin-top: 3rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── HOME ── -->
+  <div id="view-home" class="view active">
+    <h1 class="site-title">Focus <span>Timer</span></h1>
+
+    <div class="quote-card">
+      <p class="quote-text" id="quote-text"></p>
+      <p class="quote-author" id="quote-author"></p>
+    </div>
+
+    <p class="timer-label">Choose your focus length</p>
+
+    <div class="btn-grid">
+      <button class="btn-timer" data-mins="5">5<span class="btn-sub">min</span></button>
+      <button class="btn-timer" data-mins="10">10<span class="btn-sub">min</span></button>
+      <button class="btn-timer" data-mins="20">20<span class="btn-sub">min</span></button>
+      <button class="btn-timer" data-mins="30">30<span class="btn-sub">min</span></button>
+      <button class="btn-timer" data-mins="45">45<span class="btn-sub">min</span></button>
+      <button class="btn-timer" data-mins="60">60<span class="btn-sub">min</span></button>
+    </div>
+  </div>
+
+  <!-- ── GO ── -->
+  <div id="view-go" class="view">
+    <p class="go-message" id="go-message"></p>
+  </div>
+
+  <!-- ── TIMER ── -->
+  <div id="view-timer" class="view">
+    <p class="timer-chosen-label" id="timer-chosen-label"></p>
+    <div class="timer-ring-wrap">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle class="ring-bg" cx="50" cy="50" r="46"/>
+        <circle class="ring-progress" id="ring-progress" cx="50" cy="50" r="46"/>
+      </svg>
+      <div class="timer-display" id="timer-display">0:00</div>
+    </div>
+    <button class="btn-done" id="btn-done">Time's up ✦</button>
+    <div class="timer-controls" id="timer-controls">
+      <button class="btn-ctrl btn-pause" id="btn-pause">⏸ Pause</button>
+      <button class="btn-ctrl btn-stop" id="btn-stop">✕ Stop</button>
+    </div>
+  </div>
+
+  <p class="footer">stay focused · be kind to yourself</p>
+
+<script>
+  /* ── DATA ── */
+  const QUOTES = [
+    { text: "Do or do not. There is no try.", author: "Yoda — The Empire Strikes Back" },
+    { text: "It's a dangerous business, Frodo, going out your door... but you step onto the road, and you begin.", author: "Gandalf — The Fellowship of the Ring" },
+    { text: "The cave you fear to enter holds the treasure you seek.", author: "Joseph Campbell" },
+    { text: "Demons run when a good man goes to war.", author: "River Song — Doctor Who" },
+    { text: "We are what we repeatedly do. Excellence, then, is not an act but a habit.", author: "Aristotle" },
+    { text: "Somewhere, something incredible is waiting to be known.", author: "Carl Sagan" },
+    { text: "The needs of the many outweigh the needs of the few. Start the thing.", author: "Mr Spock (adapted) — Star Trek" },
+    { text: "Make it so.", author: "Captain Picard — Star Trek: TNG" },
+    { text: "Adventure is out there.", author: "Ellie Fredricksen — Up" },
+    { text: "You have power over your mind, not outside events. Realise this, and you will find strength.", author: "Marcus Aurelius" },
+    { text: "Whether you think you can, or you think you can't — you're right.", author: "Henry Ford" },
+    { text: "I am not afraid of storms, for I am learning how to sail my ship.", author: "Louisa May Alcott" },
+  ];
+
+  const GO_MESSAGES = [
+    "Let's go! 🚀",
+    "Ganbatte! 頑張って",
+    "You've got this.",
+    "Focus mode: ON",
+    "Into the breach!"
+  ];
+
+  /* ── STATE ── */
+  let totalSeconds = 0;
+  let remaining = 0;
+  let timerInterval = null;
+  let alarmInterval = null;
+  let alarmCtx = null;
+  let alarmTimeout = null;
+  let isPaused = false;
+
+  /* ── QUOTES ── */
+  function pickQuote() {
+    const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+    document.getElementById('quote-text').textContent = `"${q.text}"`;
+    document.getElementById('quote-author').textContent = `— ${q.author}`;
+  }
+
+  /* ── VIEWS ── */
+  function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  /* ── RING ── */
+  const ring = document.getElementById('ring-progress');
+  const CIRCUMFERENCE = 2 * Math.PI * 46;
+  ring.style.strokeDasharray = CIRCUMFERENCE;
+  ring.style.strokeDashoffset = '0';
+
+  function setRing(fraction) {
+    ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - fraction);
+  }
+
+  /* ── DISPLAY ── */
+  function fmtTime(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function setDisplay(text) {
+    document.getElementById('timer-display').textContent = text;
+    document.title = `${text} — Focus Timer`;
+  }
+
+  /* ── ALARM (Web Audio) ── */
+  function playBeep(ctx) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0.0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.85);
+  }
+
+  function startAlarm() {
+    alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
+    playBeep(alarmCtx);
+    alarmInterval = setInterval(() => playBeep(alarmCtx), 2000);
+
+    // Flash display
+    document.getElementById('timer-display').classList.add('flash');
+
+    // Hide pause/stop controls, show "Time's up" button
+    document.getElementById('timer-controls').style.display = 'none';
+    document.getElementById('btn-done').classList.add('visible');
+
+    // Auto-stop after 30 s
+    alarmTimeout = setTimeout(stopAlarm, 30000);
+  }
+
+  function stopAlarm() {
+    clearInterval(alarmInterval);
+    clearTimeout(alarmTimeout);
+    if (alarmCtx) { alarmCtx.close(); alarmCtx = null; }
+    document.getElementById('timer-display').classList.remove('flash');
+    document.title = 'Focus Timer';
+  }
+
+  /* ── START TIMER ── */
+  function startTimer(mins) {
+    totalSeconds = mins * 60;
+    remaining = totalSeconds;
+
+    // Show GO message for 3 s
+    const msg = GO_MESSAGES[Math.floor(Math.random() * GO_MESSAGES.length)];
+    document.getElementById('go-message').textContent = msg;
+    showView('view-go');
+
+    setTimeout(() => {
+      document.getElementById('timer-chosen-label').textContent = `${mins} minute focus`;
+      document.getElementById('btn-done').classList.remove('visible');
+      document.getElementById('timer-controls').style.display = 'flex';
+      document.getElementById('btn-pause').textContent = '⏸ Pause';
+      document.getElementById('btn-pause').classList.remove('paused');
+      document.getElementById('timer-display').classList.remove('flash');
+      setDisplay(fmtTime(remaining));
+      setRing(1);
+      showView('view-timer');
+      runCountdown();
+    }, 3000);
+  }
+
+  function runCountdown() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      remaining--;
+      setDisplay(fmtTime(remaining));
+      setRing(remaining / totalSeconds);
+
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        setDisplay('0:00');
+        setRing(0);
+        startAlarm();
+      }
+    }, 1000);
+  }
+
+  /* ── PAUSE / RESUME ── */
+  function togglePause() {
+    if (isPaused) {
+      isPaused = false;
+      document.getElementById('btn-pause').textContent = '⏸ Pause';
+      document.getElementById('btn-pause').classList.remove('paused');
+      document.title = `${fmtTime(remaining)} — Focus Timer`;
+      runCountdown();
+    } else {
+      isPaused = true;
+      clearInterval(timerInterval);
+      document.getElementById('btn-pause').textContent = '▶ Resume';
+      document.getElementById('btn-pause').classList.add('paused');
+      document.title = `⏸ ${fmtTime(remaining)} — Focus Timer`;
+    }
+  }
+
+  /* ── RESET ── */
+  function resetToHome() {
+    clearInterval(timerInterval);
+    stopAlarm();
+    isPaused = false;
+    pickQuote();
+    document.title = 'Focus Timer';
+    showView('view-home');
+  }
+
+  /* ── EVENTS ── */
+  document.querySelectorAll('.btn-timer').forEach(btn => {
+    btn.addEventListener('click', () => startTimer(Number(btn.dataset.mins)));
+  });
+
+  document.getElementById('btn-done').addEventListener('click', resetToHome);
+  document.getElementById('btn-pause').addEventListener('click', togglePause);
+  document.getElementById('btn-stop').addEventListener('click', resetToHome);
+
+  /* ── INIT ── */
+  pickQuote();
+</script>
+</body>
+</html>
